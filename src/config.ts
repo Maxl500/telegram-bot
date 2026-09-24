@@ -44,6 +44,14 @@ export interface BotConfig extends StellarConfig {
    * successful cycle lands within this window. `0` disables the stale check.
    */
   healthStaleMs: number;
+  /**
+   * Identical RPC/poller error lines allowed per key per sampling window.
+   * Repeats beyond this are counted and reported as one summary line. `1`
+   * keeps only the first line of a run; higher values keep more context.
+   */
+  logSampleMaxPerWindow: number;
+  /** Sampling window for repetitive error logs, in milliseconds. */
+  logSampleWindowMs: number;
 }
 
 export class ConfigError extends Error {
@@ -73,6 +81,11 @@ const DEFAULTS = {
   healthPort: 8787,
   // 3× default poll interval — one missed cycle is fine; three is not.
   healthStaleMs: 90_000,
+  logSampleMaxPerWindow: 3,
+  // ~10 default poll cycles of a down RPC, collapsed into one line plus a
+  // summary. Long enough not to hide a flapping error, short enough to bound
+  // an outage that lasts for hours.
+  logSampleWindowMs: 300_000,
 } as const;
 
 /** Strkey for a contract: `C` + 55 base32 characters. */
@@ -217,6 +230,13 @@ export function loadConfig(): BotConfig {
     // Port 0 is the explicit disable switch (min 0).
     healthPort: c.int("HEALTH_PORT", DEFAULTS.healthPort, 0),
     healthStaleMs: c.int("HEALTH_STALE_MS", DEFAULTS.healthStaleMs, 0),
+    logSampleMaxPerWindow: c.int(
+      "LOG_SAMPLE_MAX_PER_WINDOW",
+      DEFAULTS.logSampleMaxPerWindow,
+      1,
+    ),
+    // A window of 1ms is legal but pointless; 1s is the smallest useful unit.
+    logSampleWindowMs: c.int("LOG_SAMPLE_WINDOW_MS", DEFAULTS.logSampleWindowMs, 1_000),
   };
 
   if (c.problems.length > 0) throw new ConfigError(c.problems);
