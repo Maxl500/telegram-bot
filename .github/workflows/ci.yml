@@ -24,6 +24,15 @@ jobs:
 
       - run: npm ci
 
+      # `npm ci` proves the lockfile installs; these prove it is the lockfile we
+      # meant to commit: pinned to the registry, in sync with package.json, and
+      # unchanged when npm regenerates it from itself.
+      - name: Lockfile consistency
+        run: npm run lockfile:check
+
+      - name: Lockfile reproducibility
+        run: npm run lockfile:reproduce
+
       - name: Typecheck
         run: npm run typecheck
 
